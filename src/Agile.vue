@@ -1,7 +1,7 @@
 <template>
-	<div class="agile" :class="{'agile--auto-play': settings.autoplay, 'agile--disabled': settings.unagile, 'agile--fade': settings.fade && !settings.unagile, 'agile--rtl': settings.rtl}">
+	<div class="agile" :class="{'agile--auto-play': settings.autoplay, 'agile--disabled': settings.unagile, 'agile--fade': settings.fade && !settings.unagile, 'agile--rtl': settings.rtl, 'agile--vertical': settings.vertical}">
 		<div ref="list" class="agile__list">
-			<div ref="track" class="agile__track" :style="{transform: `translate(${translateX + marginX}px)`, transition: `transform ${settings.timing} ${transitionDelay}ms`}" @mouseover="handleMouseOver('track')" @mouseout="handleMouseOut('track')">
+			<div ref="track" class="agile__track" :style="{transform: `${variableTranslate}(${translateLength + marginSlide}px)`, transition: `transform ${settings.timing} ${transitionDelay}ms`}" @mouseover="handleMouseOver('track')" @mouseout="handleMouseOut('track')">
 				<div class="agile__slides agile__slides--cloned" ref="slidesClonedBefore" v-if="clonedSlides">
 					<slot></slot>
 				</div>
@@ -162,7 +162,13 @@
 			unagile: {
 				type: Boolean,
 				default: false
-			}
+      },
+
+      vertical: {
+        // if slide vertically
+        type: Boolean,
+        default: false
+      }
 		},
 
 		data () {
@@ -183,11 +189,11 @@
 				dragStartY: 0,
 				dragDistance: 0,
 				swipeDistance: 50,
-				translateX: 0,
+				translateLength: 0,
 				transitionDelay: 0,
-				widthWindow: 0,
-				widthContainer: 0,
-				widthSlide: 0,
+				lengthWindow: 0,
+				lengthContainer: 0,
+				lengthSlide: 0,
 				initialSettings: {
 					asNavFor: this.asNavFor,
 					autoplay: this.autoplay,
@@ -208,7 +214,8 @@
 					slidesToShow: this.slidesToShow,
 					speed: this.speed,
 					timing: this.timing,
-					unagile: this.unagile
+          unagile: this.unagile,
+          vertical: this.vertical
 				},
 				settings: {}
 			}
@@ -233,7 +240,7 @@
 
 			currentBreakpoint: function () {
 				let breakpoints = this.breakpoints.map(item => item).reverse()
-				return (this.initialSettings.mobileFirst) ? breakpoints.find(item => item < this.widthWindow) || 0 : breakpoints.find(item => item > this.widthWindow) || null
+				return (this.initialSettings.mobileFirst) ? breakpoints.find(item => item < this.lengthWindow) || 0 : breakpoints.find(item => item > this.lengthWindow) || null
 			},
 
 			allSlides: function () {
@@ -248,21 +255,28 @@
 				return this.allSlides.length
 			},
 
-			marginX: function () {
-				let marginX = (this.clonedSlides) ? this.slidesCount * this.widthSlide : 0
+			marginSlide: function () {
+				let marginSlide = (this.clonedSlides) ? this.slidesCount * this.lengthSlide : 0
 
 				// Center mode margin
 				if (this.settings.centerMode) {
-					marginX -= (Math.floor(this.settings.slidesToShow / 2) - +(this.settings.slidesToShow % 2 === 0)) * this.widthSlide
+					marginSlide -= (Math.floor(this.settings.slidesToShow / 2) - +(this.settings.slidesToShow % 2 === 0)) * this.lengthSlide
 				}
 
-				return (this.settings.rtl) ? marginX : -1 * marginX
-			}
+				return (this.settings.rtl) ? marginSlide : -1 * marginSlide
+      },
+
+      variableLength() {
+        return this.settings.vertical ? 'height' : 'width'
+      },
+      variableTranslate() {
+        return this.settings.vertical ? 'translateY' : 'translateX'
+      }
 		},
 
 		watch: {
 			// Watch window width change
-			widthWindow (newValue, oldValue) {
+			lengthWindow (newValue, oldValue) {
 				if (oldValue) {
 					this.prepareCarousel()
 					this.toggleFade()
@@ -344,7 +358,7 @@
 
 		mounted () {
 			// Windows resize listener
-			window.addEventListener('resize', this.getWidth)
+			window.addEventListener('resize', this.getLength)
 
 			// Mouse and touch events
 			if ('ontouchstart' in window) {
@@ -362,7 +376,7 @@
 		},
 
 		beforeDestroy () {
-			window.removeEventListener('resize', this.getWidth)
+			window.removeEventListener('resize', this.getLength)
 
 			if ('ontouchstart' in window) {
 				this.$refs.track.removeEventListener('touchstart', this.handleMouseDown)
@@ -394,10 +408,15 @@
 				}
 			},
 
-			getWidth () {
-				this.widthWindow = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth
-				this.widthContainer = this.$refs.list.clientWidth
-			},
+			getLength () {
+        if (!this.settings.vertical) {
+          this.lengthWindow = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth
+				  this.lengthContainer = this.$refs.list.clientWidth
+        } else {
+          this.lengthWindow = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight
+				  this.lengthContainer = this.$refs.list.clientHeight
+        }
+      },
 
 			handleMouseDown (e) {
 				if (!e.touches) {
@@ -412,11 +431,18 @@
 				let positionX = ('ontouchstart' in window) ? e.touches[0].clientX : e.clientX
 				let positionY = ('ontouchstart' in window) ? e.touches[0].clientY : e.clientY
 				let dragDistanceX = Math.abs(positionX - this.dragStartX)
-				let dragDistanceY = Math.abs(positionY - this.dragStartY)
-				if (dragDistanceX > 3 * dragDistanceY) {
-					this.disableScroll()
-					this.dragDistance = positionX - this.dragStartX
-				}
+        let dragDistanceY = Math.abs(positionY - this.dragStartY)
+        if (this.settings.vertical) {
+          if (dragDistanceY > 3 * dragDistanceX) {
+            this.disableScroll()
+            this.dragDistance = positionY - this.dragStartY
+          }
+        } else {
+          if (dragDistanceX > 3 * dragDistanceY) {
+            this.disableScroll()
+            this.dragDistance = positionX - this.dragStartX
+          }
+        }
 			},
 
 			handleMouseUp () {
@@ -442,7 +468,7 @@
 
 			// Reload carousel
 			reload () {
-				this.getWidth()
+				this.getLength()
 				this.prepareSettings()
 				this.prepareSlides()
 				this.prepareCarousel()
@@ -461,7 +487,7 @@
 				delete newSettings.responsive
 
 				this.initialSettings.responsive.forEach(option => {
-					if (this.initialSettings.mobileFirst ? option.breakpoint < this.widthWindow : option.breakpoint > this.widthWindow) {
+					if (this.initialSettings.mobileFirst ? option.breakpoint < this.lengthWindow : option.breakpoint > this.lengthWindow) {
 						for (let key in option.settings) {
 							newSettings[key] = option.settings[key]
 						}
@@ -511,16 +537,19 @@
 
 			// Prepare carousel styles
 			prepareCarousel () {
-				this.widthSlide = !this.settings.unagile ? this.widthContainer / this.settings.slidesToShow : 'auto'
+				this.lengthSlide = !this.settings.unagile ? this.lengthContainer / this.settings.slidesToShow : 'auto'
 
 				// Actions on document resize
 				for (let i = 0; i < this.allSlidesCount; i++) {
-					this.allSlides[i].style.width = this.widthSlide + 'px'
+          this.allSlides[i].style[this.variableLength] = this.lengthSlide + 'px'
+          if (this.settings.vertical) {
+            this.allSlides[i].style.width = '100%'
+          }
 				}
 
 				// Prepare track
 				if (this.settings.unagile) {
-					this.translateX = 0
+					this.translateLength = 0
 				} else {
 					if (this.currentSlide === null) {
 						this.currentSlide = this.settings.initialSlide
@@ -535,7 +564,7 @@
 
 				for (let i = 0; i < this.slidesCount; i++) {
 					this.slides[i].style.transition = (enabled) ? 'opacity ' + this.settings.timing + ' ' + this.settings.speed + 'ms' : 'none'
-					this.slides[i].style.transform = (enabled) ? `translate(-${i * this.widthSlide}px)` : 'none'
+					this.slides[i].style.transform = (enabled) ? `translate(-${i * this.lengthSlide}px)` : 'none'
 				}
 			},
 
@@ -649,9 +678,9 @@
 					}
 				}
 
-				let translateX = (!this.settings.fade) ? n * this.widthSlide * this.settings.slidesToScroll : 0
+				let translate = (!this.settings.fade) ? n * this.lengthSlide * this.settings.slidesToScroll : 0
 				this.transitionDelay = (transition) ? this.speed : 0
-				this.translateX = (this.settings.rtl) ? translateX : -1 * translateX
+				this.translateLength = (this.settings.rtl) ? translate : -1 * translate
 			}
 		}
 	}
@@ -667,6 +696,18 @@
 	.agile--rtl .agile__dots {
 		flex-direction: row-reverse;
 	}
+
+  .agile--vertical .agile__track,
+	.agile--vertical .agile__slides,
+	.agile--vertical .agile__dots {
+		flex-direction: column;
+	}
+  .agile--vertical {
+    height: 100%;
+  }
+  .agile--vertical .agile__list {
+    height: 100%;
+  }
 
 	.agile:focus, .agile:active, .agile *:focus, .agile *:active {
 		outline: none;
