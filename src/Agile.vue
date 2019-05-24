@@ -1,7 +1,7 @@
 <template>
 	<div class="agile" :class="{'agile--auto-play': settings.autoplay, 'agile--disabled': settings.unagile, 'agile--fade': settings.fade && !settings.unagile, 'agile--rtl': settings.rtl, 'agile--vertical': settings.vertical}">
 		<div ref="list" class="agile__list">
-			<div ref="track" class="agile__track" :style="{transform: `${variableTranslate}(${translateLength + marginSlide}px)`, transition: `transform ${settings.timing} ${transitionDelay}ms`}" @mouseover="handleMouseOver('track')" @mouseout="handleMouseOut('track')">
+			<div ref="track" class="agile__track" :style="{transform: `${variableTranslate}(${transformWithDrag + marginSlide}px)`, transition: `transform ${settings.timing} ${transitionDelay}ms`}" @mouseover="handleMouseOver('track')" @mouseout="handleMouseOut('track')">
 				<div class="agile__slides agile__slides--cloned" ref="slidesClonedBefore" v-if="clonedSlides">
 					<slot></slot>
 				</div>
@@ -188,8 +188,9 @@
 				dragStartX: 0,
 				dragStartY: 0,
 				dragDistance: 0,
-				swipeDistance: 50,
-				translateLength: 0,
+				swipeDistance: 100,
+        translateLength: 0,
+        transformWithDrag: 0,
 				transitionDelay: 0,
 				lengthWindow: 0,
 				lengthContainer: 0,
@@ -300,19 +301,18 @@
 			},
 
 			// Watch drag distance change
-			dragDistance () {
+			dragDistance (cur, prev) {
 				if (this.mouseDown) {
-					if (this.dragDistance > this.swipeDistance && this.canGoToPrev) {
-						this.goToPrev()
-						this.handleMouseUp()
-					}
-
-					if (this.dragDistance < -1 * this.swipeDistance && this.canGoToNext) {
-						this.goToNext()
-						this.handleMouseUp()
-					}
-				}
-			},
+          console.log('watch dragDistance', this.currentSlide, this.translateLength, this.dragDistance)
+          if (this.settings.vertical) {
+            this.transformWithDrag = this.translateLength + cur
+          } else {
+            this.transformWithDrag = this.translateLength + cur
+          }
+				} else {
+          this.transformWithDrag = this.translateLength
+        }
+      },
 
 			'settings.fade' () {
 				this.toggleFade()
@@ -362,13 +362,13 @@
 
 			// Mouse and touch events
 			if ('ontouchstart' in window) {
-				this.$refs.track.addEventListener('touchstart', this.handleMouseDown)
-				this.$refs.track.addEventListener('touchend', this.handleMouseUp)
-				this.$refs.track.addEventListener('touchmove', this.handleMouseMove)
+				this.$refs.track.addEventListener('touchstart', this.handleMouseDown, { passive: false })
+				this.$refs.track.addEventListener('touchend', this.handleMouseUp, { passive: false })
+				this.$refs.track.addEventListener('touchmove', this.handleMouseMove, { passive: false })
 			} else {
-				this.$refs.track.addEventListener('mousedown', this.handleMouseDown)
-				this.$refs.track.addEventListener('mouseup', this.handleMouseUp)
-				this.$refs.track.addEventListener('mousemove', this.handleMouseMove)
+				this.$refs.track.addEventListener('mousedown', this.handleMouseDown, { passive: false })
+				this.$refs.track.addEventListener('mouseup', this.handleMouseUp, { passive: false })
+				this.$refs.track.addEventListener('mousemove', this.handleMouseMove, { passive: false })
 			}
 
 			// Init
@@ -434,19 +434,51 @@
         let dragDistanceY = Math.abs(positionY - this.dragStartY)
         if (this.settings.vertical) {
           if (dragDistanceY > 3 * dragDistanceX) {
-            this.disableScroll()
+            // this.disableScroll()
             this.dragDistance = positionY - this.dragStartY
+            // if (this.currentSlide === 0 && this.dragDistance > 0) {
+            //   this.transformWithDrag = this.translateLength + Math.min(this.dragDistance, this.swipeDistance)
+            // } else if (this.currentSlide + 1 === this.slidesCount && this.dragDistance < 0) {
+            //   this.transformWithDrag = this.translateLength + Math.max(this.dragDistance, -this.swipeDistance)
+            // } else {
+            //   this.transformWithDrag = this.translateLength + this.dragDistance
+            // }
+            console.log('handleMouseMove', this.currentSlide, this.translateLength, this.dragDistance)
+            // this.transformWithDrag = this.translateLength + this.dragDistance
           }
         } else {
           if (dragDistanceX > 3 * dragDistanceY) {
-            this.disableScroll()
+            // this.disableScroll()
             this.dragDistance = positionX - this.dragStartX
+            console.log('handleMouseMove', this.currentSlide, this.translateLength, this.dragDistance)
+            // this.transformWithDrag = this.translateLength + this.dragDistance
           }
         }
+        // if (this.mouseDown) {
+        //   console.log('transformWithDrag', this.currentSlide, this.translateLength, this.dragDistance)
+        //   if (this.settings.vertical) {
+        //     this.transformWithDrag = this.translateLength + cur
+        //   } else {
+        //     this.transformWithDrag = this.translateLength + cur
+        //   }
+				// } else {
+        //   this.transformWithDrag = this.translateLength
+        // }
 			},
 
 			handleMouseUp () {
-				this.mouseDown = false
+        this.mouseDown = false
+        if (this.dragDistance > this.swipeDistance && this.canGoToPrev) {
+          console.log('handleMouseUp', this.currentSlide, this.translateLength, this.dragDistance)
+          this.goToPrev()
+        }
+
+        if (this.dragDistance < -1 * this.swipeDistance && this.canGoToNext) {
+          console.log('handleMouseUp', this.currentSlide, this.translateLength, this.dragDistance)
+          this.goToNext()
+        }
+        this.dragDistance = 0
+        this.transformWithDrag = this.translateLength
 				this.enableScroll()
 			},
 
@@ -667,8 +699,7 @@
 						realNextSlide = 0
 					}
 
-					this.$emit('beforeChange', { currentSlide: this.currentSlide, nextSlide: realNextSlide })
-
+          this.$emit('beforeChange', { currentSlide: this.currentSlide, nextSlide: realNextSlide })
 					this.currentSlide = realNextSlide
 
 					if (n !== realNextSlide) {
@@ -680,8 +711,31 @@
 
 				let translate = (!this.settings.fade) ? n * this.lengthSlide * this.settings.slidesToScroll : 0
 				this.transitionDelay = (transition) ? this.speed : 0
-				this.translateLength = (this.settings.rtl) ? translate : -1 * translate
-			}
+        this.translateLength = (this.settings.rtl) ? translate : -1 * translate
+        this.transformWithDrag = this.translateLength
+      },
+
+      // changeDragDistance() {
+      //   if (!this.mouseDown) {
+      //     return
+      //   }
+
+      //   if (this.dragDistance > this.swipeDistance) {
+      //     if (!this.infinite_ && this.currentSlide === 0) {
+      //       return
+      //     }
+
+      //     this.prevSlide()
+      //   }
+
+      //   if (this.dragDistance < -1 * this.swipeDistance) {
+      //     if (!this.infinite_ && this.currentSlide === this.slidesCount - 1) {
+      //       return
+      //     }
+
+      //     this.nextSlide()
+      //   }
+      // }
 		}
 	}
 </script>

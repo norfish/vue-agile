@@ -1,3 +1,6 @@
 module.exports = {
-	publicPath: '/vue-agile/'
+  publicPath: '/vue-agile/',
+  devServer: {
+    disableHostCheck: true,
+  }
 }

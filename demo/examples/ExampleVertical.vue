@@ -1,11 +1,5 @@
 <template lang="pug">
 	section.section.section--demo-1
-		div.container
-			div.row
-				div.col-xs-12
-					h2.section__title #[strong #0] demo
-						code-pen(id="EJRNMM")
-					p.section__description vue-agile vertical with default settings and minimal styles
 
 			div.row
 				div.col-xs-12.agile-wrap
@@ -30,7 +24,7 @@
 
 <style lang="scss">
 .agile-wrap {
-  height: 200px;
+  height: 400px;
 }
 </style>
 
