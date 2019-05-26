@@ -303,7 +303,6 @@
 			// Watch drag distance change
 			dragDistance (cur, prev) {
 				if (this.mouseDown) {
-          console.log('watch dragDistance', this.currentSlide, this.translateLength, this.dragDistance)
           if (this.settings.vertical) {
             this.transformWithDrag = this.translateLength + cur
           } else {
@@ -443,14 +442,12 @@
             // } else {
             //   this.transformWithDrag = this.translateLength + this.dragDistance
             // }
-            console.log('handleMouseMove', this.currentSlide, this.translateLength, this.dragDistance)
             // this.transformWithDrag = this.translateLength + this.dragDistance
           }
         } else {
           if (dragDistanceX > 3 * dragDistanceY) {
             // this.disableScroll()
             this.dragDistance = positionX - this.dragStartX
-            console.log('handleMouseMove', this.currentSlide, this.translateLength, this.dragDistance)
             // this.transformWithDrag = this.translateLength + this.dragDistance
           }
         }
@@ -469,12 +466,10 @@
 			handleMouseUp () {
         this.mouseDown = false
         if (this.dragDistance > this.swipeDistance && this.canGoToPrev) {
-          console.log('handleMouseUp', this.currentSlide, this.translateLength, this.dragDistance)
           this.goToPrev()
         }
 
         if (this.dragDistance < -1 * this.swipeDistance && this.canGoToNext) {
-          console.log('handleMouseUp', this.currentSlide, this.translateLength, this.dragDistance)
           this.goToNext()
         }
         this.dragDistance = 0
